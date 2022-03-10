@@ -59,11 +59,14 @@ public class NBClassifier implements Classifier {
 	 * @return the log10 probability that 'ex' is of class 'label'
 	 */
 	public double getLogProb(Example ex, double label) {
+		// get number of occurrences of label
 		double countOfLabel = labelCounts.get(ex.getLabel());
 		double logProb = Math.log10(countOfLabel / totalCount);
 
+		// iterate over all features or only positive depending on setting
 		Set<Integer> featureSet = usePositiveFeaturesOnly ? ex.getFeatureSet() : allFeatureIndices;
 
+		// iterate over features, calculating the conditional probability for each one
 		for (int feature : featureSet) {
 			double numFeatureOccurrences = (double) (featureCounts.get(label).get(feature)) + lambda;
 			double numLabelOccurrences = countOfLabel + lambda * allLabelIndices.size();
