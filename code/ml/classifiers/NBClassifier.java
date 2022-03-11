@@ -60,7 +60,7 @@ public class NBClassifier implements Classifier {
 	 */
 	public double getLogProb(Example ex, double label) {
 		// get number of occurrences of label
-		double countOfLabel = labelCounts.get(ex.getLabel());
+		double countOfLabel = labelCounts.get(label);
 		double logProb = Math.log10(countOfLabel / totalCount);
 
 		// iterate over all features or only positive depending on setting
@@ -68,11 +68,7 @@ public class NBClassifier implements Classifier {
 
 		// iterate over features, calculating the conditional probability for each one
 		for (int feature : featureSet) {
-			double numFeatureOccurrences = (double) (featureCounts.get(label).get(feature)) + lambda;
-			double numLabelOccurrences = countOfLabel + lambda * allLabelIndices.size();
-
-			double conditionalProb = numFeatureOccurrences / numLabelOccurrences;
-
+			double conditionalProb = getFeatureProb(feature, label);
 			if (ex.getFeature(feature) > 0) {
 				logProb += Math.log10(conditionalProb);
 			} else if (!usePositiveFeaturesOnly) {
@@ -91,9 +87,10 @@ public class NBClassifier implements Classifier {
 	 * @return p(featureIndex | label)
 	 */
 	public double getFeatureProb(int featureIndex, double label) {
-		double num = (double) featureCounts.get(label).get(featureIndex);
-		double den = (double) labelCounts.get(label);
-		return num / den;
+		double numFeatureOccurrences = (double) (featureCounts.get(label).get(featureIndex)) + lambda;
+		double numLabelOccurrences = labelCounts.get(label) + lambda * 2;
+
+		return numFeatureOccurrences / numLabelOccurrences;
 	}
 
 	@Override
@@ -133,8 +130,14 @@ public class NBClassifier implements Classifier {
 		}
 	}
 
-	@Override
-	public double classify(Example example) {
+	/**
+	 * Helper function to calculate the maximum probability label for a given
+	 * example
+	 * 
+	 * @param example
+	 * @return the largest conditional probability AND its associated label
+	 */
+	private double[] getMaxPredLabel(Example example) {
 		double maxPred = Double.NEGATIVE_INFINITY, maxLabel = -1;
 
 		for (double label : allLabelIndices) {
@@ -146,43 +149,39 @@ public class NBClassifier implements Classifier {
 			}
 		}
 
-		return maxLabel;
+		return new double[] { maxPred, maxLabel };
+	}
+
+	@Override
+	public double classify(Example example) {
+		return getMaxPredLabel(example)[1];
 	}
 
 	@Override
 	public double confidence(Example example) {
-		double maxPred = Double.NEGATIVE_INFINITY;
-
-		for (double label : allLabelIndices) {
-			double pred = getLogProb(example, label);
-
-			if (pred > maxPred) {
-				maxPred = pred;
-			}
-		}
-
-		return maxPred;
+		return getMaxPredLabel(example)[0];
 	}
 
 	public static void main(String[] args) {
-//		DataSet data = new DataSet("../assign7b-starter/data/simple.data", DataSet.TEXTFILE);
+		DataSet data = new DataSet("../assign7b-starter/data/simple.data", DataSet.TEXTFILE);
 //		DataSet data = new DataSet("../assign7b-starter/data/titanic-train.csv", DataSet.CSVFILE);
-		DataSet data = new DataSet("../assign7b-starter/data/wines.train", DataSet.TEXTFILE);
+//		DataSet data = new DataSet("../assign7b-starter/data/wines.train", DataSet.TEXTFILE);
 		NBClassifier nb = new NBClassifier();
 
-		nb.setUseOnlyPositiveFeatures(true);
-		nb.setLambda(0.7);
+		nb.setUseOnlyPositiveFeatures(false);
+		nb.setLambda(0.01);
 		nb.train(data);
 
-		// get accuracy of model
-		double c = 0, t = 0;
-		for (Example e : data.getData()) {
-			if (nb.classify(e) == e.getLabel()) {
-				c++;
-			}
-			t++;
+		// for pos labels
+		for (int i : data.getAllFeatureIndices()) {
+			System.out.println(nb.getFeatureProb(i, 1) + " " + data.getFeatureMap().get(i));
 		}
 
-		System.out.println(c / t);
+		System.out.println();
+
+		// for neg labels
+		for (int i : data.getAllFeatureIndices()) {
+			System.out.println(nb.getFeatureProb(i, -1) + " " + data.getFeatureMap().get(i));
+		}
 	}
 }
